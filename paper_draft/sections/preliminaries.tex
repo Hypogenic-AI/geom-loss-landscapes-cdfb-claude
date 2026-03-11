@@ -1,0 +1,140 @@
+\section{Preliminaries}\label{sec:prelim}
+
+We establish notation and recall the key definitions and results from loss
+landscape theory that underpin our analysis.
+
+\subsection{Notation}\label{subsec:notation}
+
+Let $f_\theta \colon \gX \to \gY$ denote a neural network with parameters
+$\theta \in \R^d$, input space $\gX$, and output space $\gY$. We write
+$\gD = \{(x_i, y_i)\}_{i=1}^m$ for the training set. The empirical loss is
+\[
+  L(\theta) = \frac{1}{m} \sum_{i=1}^m \ell(f_\theta(x_i), y_i),
+\]
+where $\ell$ is a per-sample loss function. We write $\Hess L(\theta)$ for the
+Hessian matrix of $L$ at $\theta$, and $\lmax(\theta) = \|\Hess L(\theta)\|_2$
+for its spectral norm (largest eigenvalue in absolute value). The Hessian trace
+is $\Tr(\Hess L(\theta)) = \sum_{j=1}^d \lambda_j$, where $\lambda_1 \ge
+\cdots \ge \lambda_d$ are the eigenvalues.
+
+For a sequence $s = (s_1, \ldots, s_K)$, we write $s_{<k} = (s_1, \ldots,
+s_{k-1})$ with the convention $s_{<1} = \emptyset$. The notation
+$B_p(\rho, \theta) = \{\theta' \in \R^d : \|\theta' - \theta\|_p \le \rho\}$
+denotes the closed $\ell_p$-ball of radius $\rho$ centered at $\theta$.
+
+\subsection{Loss functions for sequence prediction}\label{subsec:loss-seq}
+
+We consider autoregressive sequence prediction, where the model
+$f_\theta$ parameterizes a conditional distribution $P(\cdot \mid x; \theta)$
+over output sequences given input $x$.
+
+\begin{definition}[Monolithic loss]\label{def:monolithic}
+  Given an input-output pair $(x, y)$ with $y$ a token sequence of length $T$,
+  the \emph{monolithic} (direct) loss is
+  \[
+    \Ldir(\theta; x, y) = -\sum_{t=1}^T \log P(y_t \mid y_{<t}, x; \theta).
+  \]
+\end{definition}
+
+\begin{definition}[Decomposed loss]\label{def:decomposed}
+  Given an input $x$ and a sequence of $K$ intermediate reasoning steps
+  $s = (s_1, \ldots, s_K)$, where each step $s_k$ is itself a token subsequence,
+  the \emph{decomposed} (chain-of-thought) loss is
+  \[
+    \Lcot(\theta; x, s) = -\sum_{k=1}^K \log P(s_k \mid s_{<k}, x; \theta)
+    = \sum_{k=1}^K \Lstep_k(\theta; x, s_{<k}),
+  \]
+  where $\Lstep_k(\theta; x, s_{<k}) = -\log P(s_k \mid s_{<k}, x; \theta)$
+  is the \emph{per-step loss} for step $k$.
+\end{definition}
+
+\begin{remark}\label{rem:chain-rule}
+  By the chain rule of probability, $\Lcot(\theta; x, s) = -\log P(s \mid x;
+  \theta) = \Ldir(\theta; x, s)$ when $s$ is viewed as a single concatenated
+  sequence. The distinction lies not in the value of the loss but in the
+  \emph{structure} it imposes: the decomposed form highlights the $K$-fold
+  additive structure, which has consequences for the Hessian (see
+  Theorem~\ref{thm:hessian-bound}).
+\end{remark}
+
+\subsection{Sharpness and flatness}\label{subsec:sharpness}
+
+\begin{definition}[SAM sharpness~\cite{foret2021sharpness}]\label{def:sam}
+  For a loss function $L$, parameters $\theta$, and perturbation radius
+  $\rho > 0$, the \emph{SAM sharpness} is
+  \[
+    \Ssharp(\theta, \rho) = \max_{\|\epsilon\|_2 \le \rho}
+    \bigl[L(\theta + \epsilon) - L(\theta)\bigr].
+  \]
+\end{definition}
+
+By a second-order Taylor expansion at a non-degenerate critical point $\theta^*$,
+\begin{equation}\label{eq:sharpness-hessian}
+  \Ssharp(\theta^*, \rho) \approx \tfrac{1}{2}\rho^2 \lmax(\theta^*).
+\end{equation}
+This connects sharpness to the Hessian top eigenvalue, though the approximation
+is accurate only for small $\rho$.
+
+\begin{definition}[Filter-normalized directions~\cite{li2018visualizing}]\label{def:filter-norm}
+  Given a random direction $\vd \in \R^d$ with the same block structure as
+  $\theta = (\theta^{(1)}, \ldots, \theta^{(L)})$ (one block per layer), the
+  \emph{filter-normalized} direction $\hat{\vd}$ is defined by
+  \[
+    \hat{d}^{(\ell)}_j = \frac{d^{(\ell)}_j}{\|d^{(\ell)}_j\|}
+    \cdot \|\theta^{(\ell)}_j\|,
+  \]
+  where $d^{(\ell)}_j$ and $\theta^{(\ell)}_j$ denote the $j$-th filter
+  (or column) of layer $\ell$.
+\end{definition}
+
+Filter normalization removes the effect of parameter scale, addressing the
+reparametrization critique of Dinh et al.~\cite{dinh2017sharp}, who showed that
+naive sharpness measures can be made arbitrarily large by rescaling parameters
+in networks with positively homogeneous activations.
+
+\subsection{Mode connectivity}\label{subsec:mode-conn}
+
+\begin{definition}[Linear mode connectivity~\cite{frankle2020linear}]\label{def:lmc}
+  Two parameter vectors $\theta_A, \theta_B \in \R^d$ are \emph{linearly mode
+  connected} with barrier $\epsilon$ if
+  \[
+    \barrier(\theta_A, \theta_B) \coloneqq
+    \max_{\alpha \in [0,1]} L\bigl((1-\alpha)\theta_A + \alpha\theta_B\bigr)
+    - \frac{L(\theta_A) + L(\theta_B)}{2} \le \epsilon.
+  \]
+  When $\epsilon = 0$, the loss is convex along the interpolation path.
+\end{definition}
+
+Kuditipudi et al.~\cite{kuditipudi2019explaining} proved that dropout-stable
+optima of overparameterized networks are connected by piecewise-linear paths
+with at most $O(d)$ segments, where $d$ is the number of parameters. Ainsworth
+et al.~\cite{ainsworth2023git} showed empirically that independently trained
+networks can be made linearly mode connected after aligning their neurons via
+permutation symmetry, supporting the conjecture that the loss landscape
+contains essentially a single basin modulo permutations.
+
+\subsection{Hessian spectral analysis}\label{subsec:hessian}
+
+The Hessian $\Hess L(\theta) \in \R^{d \times d}$ is typically too large to
+compute or store for modern networks. Two tractable quantities are widely used:
+
+\begin{enumerate}[leftmargin=*,itemsep=2pt]
+\item \textbf{Top eigenvalue} $\lmax$, computed by power iteration using
+  Hessian--vector products (HVPs). Each HVP requires one forward and one
+  backward pass and can be computed exactly via automatic
+  differentiation.
+
+\item \textbf{Hessian trace} $\Tr(\Hess L)$, estimated via Hutchinson's
+  method~\cite{ghorbani2019investigation}: for random vectors
+  $\vz_1, \ldots, \vz_n$ with i.i.d.\ Rademacher entries,
+  \[
+    \Tr(\Hess L) = \E[\vz^\top \Hess L \, \vz]
+    \approx \frac{1}{n}\sum_{j=1}^n \vz_j^\top (\Hess L \, \vz_j).
+  \]
+\end{enumerate}
+
+Ghorbani et al.~\cite{ghorbani2019investigation} showed that for classification
+networks, the Hessian spectrum has a characteristic two-component structure: a
+continuous bulk near zero and a small number of isolated outlier eigenvalues
+roughly equal to the number of classes. Whether an analogous structure holds for
+autoregressive sequence prediction is an open question.

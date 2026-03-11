@@ -1,0 +1,856 @@
+You are an academic paper writer for mathematics. Generate a complete AMS-style
+paper based on the mathematical results provided.
+
+════════════════════════════════════════════════════════════════════════════════
+                         IMPORTANT: BEFORE YOU START
+════════════════════════════════════════════════════════════════════════════════
+
+Before writing any content, you MUST complete these steps:
+
+1. READ THE SKILL: Review the paper-writer skill at .claude/skills/paper-writer/SKILL.md
+2. READ THE STYLE GUIDE: Study templates/paper_writing/lab_style_guide.md carefully
+3. REVIEW AMS SAMPLE: Skim paper_draft/example_paper.tex for LaTeX formatting
+   conventions ONLY — it is the official AMS journal sample file that demonstrates
+   how to use amsart theorem environments, equation formatting, list types,
+   bibliography style, and document structure. It is NOT a real paper and its
+   "content" is purely illustrative (placeholder lemmas, dummy proofs, etc.).
+   Do NOT imitate its content or narrative structure.
+4. REVIEW LANGUAGE STYLE: Browse paper_examples/ for language and exposition patterns
+5. VERIFY COMMAND TEMPLATES: Command templates (math.tex, general.tex, macros.tex)
+   are pre-copied to paper_draft/commands/
+
+CRITICAL: The AMS sample file is a LaTeX formatting reference, not a content template.
+Use it to learn \documentclass{amsart} conventions (theorem/proof environments,
+\bibliographystyle{amsplain}, author/address blocks). Write your own content
+based on the research report below.
+
+════════════════════════════════════════════════════════════════════════════════
+                            RESEARCH REPORT
+════════════════════════════════════════════════════════════════════════════════
+
+# Geometric Analysis of Loss Landscapes in Automated Theorem Proving: Chain-of-Thought vs Direct Proof Generation
+
+## 1. Executive Summary
+
+We investigated whether chain-of-thought (CoT) reasoning in neural theorem provers creates fundamentally different loss landscape geometry compared to direct proof generation. Using small transformer models trained on propositional logic theorem proving with matched architectures and training conditions, we measured five geometric properties of the loss landscape: Hessian top eigenvalue, Hessian trace, SAM-style sharpness, mode connectivity barriers, and perturbation sensitivity.
+
+**Key finding**: CoT models consistently converge to flatter minima with lower curvature (top eigenvalue 3.20 ± 0.78 vs 4.16 ± 0.47 for direct), lower sharpness at all perturbation radii, and smaller gradient norms at convergence. However, CoT models exhibit *higher* loss barriers between independently trained solutions (1.40 vs 1.07), suggesting that while CoT minima are individually flatter, they are more isolated from each other in parameter space.
+
+**Practical implication**: The loss landscape geometry supports the hypothesis that CoT decomposition creates a smoother local optimization landscape that is easier to navigate, explaining its superior convergence. However, the higher inter-solution barriers challenge the simple narrative that CoT landscapes are &#34;more connected&#34; overall.
+
+## 2. Goal
+
+### Hypothesis
+Chain-of-thought (CoT) reasoning in neural theorem provers creates smoother, more connected loss landscapes with wider basins of attraction compared to direct proof generation, which exhibits sharper minima and more fragmented topology. This geometric difference explains the superior convergence and generalization properties observed in CoT-based proving systems.
+
+### Importance
+- Neural theorem provers with CoT consistently outperform direct proof generation (e.g., GPT-f step-by-step approach vs. Baldur&#39;s whole-proof generation)
+- The mathematical mechanisms underlying this improvement are unknown
+- Understanding loss landscape geometry could guide design of more efficient proving architectures
+- No prior work compares loss landscapes across proof generation strategies (identified gap in literature)
+
+### Sub-hypotheses
+- **H1**: CoT models converge to flatter minima (lower top Hessian eigenvalue)
+- **H2**: CoT landscapes have lower sharpness (SAM-style measure)
+- **H3**: CoT models exhibit wider basins of attraction
+- **H4**: CoT solutions are more mode-connected than direct solutions
+- **H5**: CoT training shows more stable gradient dynamics
+
+## 3. Data Construction
+
+### Dataset Description
+We designed a propositional logic theorem proving task with 10 inference rule templates:
+
+| Template | Example | Rule |
+|----------|---------|------|
+| Modus Ponens | p, p → q ⊢ q | MP |
+| Modus Tollens | ¬q, p → q ⊢ ¬p | MT |
+| Hypothetical Syllogism | p → q, q → r ⊢ p → r | HS |
+| Conjunction Introduction | p, q ⊢ p ∧ q | ∧I |
+| Conjunction Elimination | p ∧ q ⊢ p | ∧E |
+| Disjunction Introduction | p ⊢ p ∨ q | ∨I |
+| Disjunctive Syllogism | p ∨ q, ¬p ⊢ q | DS |
+| Double Negation | ¬¬p ⊢ p | DN |
+| Chain Rule | p, p → q, q → r ⊢ r | Chain |
+| Complex | p ∧ q, p → r ⊢ r | Complex |
+
+Each template is instantiated with 6 variable substitution patterns (using variables p, q, r, s), yielding diverse instances.
+
+**Two output formats** from identical inputs:
+- **Direct**: Just the conclusion (e.g., &#34;q&#34;)
+- **CoT**: Step-by-step derivation (e.g., &#34;Given: p; p IMPLIES q | By modus ponens on premise 1 and 2: q | Therefore: q&#34;)
+
+### Example Samples
+
+**Direct format:**
+```
+Input:  NOT q ; p IMPLIES q |-
+Output: NOT p
+```
+
+**CoT format:**
+```
+Input:  NOT q ; p IMPLIES q |-
+Output: Given: NOT q; p IMPLIES q | Therefore: NOT p
+```
+
+### Dataset Sizes
+- Training: 1,500 samples
+- Validation: 400 samples
+- Tokenizer vocabulary: 43 tokens (character + keyword level)
+- Maximum sequence length: 80 tokens
+
+### Preprocessing
+- Greedy longest-match tokenization
+- Input and output concatenated with `&lt;sep&gt;` token
+- Padded to fixed length (80 tokens)
+- Autoregressive format: input_ids[:-1] → input_ids[1:]
+
+## 4. Experiment Description
+
+### Methodology
+
+#### High-Level Approach
+We train matched transformer models on identical theorem proving instances, differing only in output format (direct vs CoT). By keeping architecture, initialization, optimizer, and training data identical, differences in loss landscape geometry can be attributed to the proof generation strategy.
+
+#### Why This Method?
+- **Filter-normalized visualization** (Li et al. 2018) is the gold standard for loss surface comparison
+- **Hessian analysis** via power iteration provides reparametrization-aware curvature measures (addressing Dinh et al. 2017 concerns)
+- **Mode connectivity** (Frankle et al. 2020) reveals basin structure
+- **SAM-style sharpness** (Foret et al. 2021) connects to generalization theory via PAC-Bayes bounds
+- Small-scale controlled experiments allow complete analysis within computational constraints
+
+### Implementation Details
+
+#### Model Architecture
+| Parameter | Value |
+|-----------|-------|
+| Architecture | Decoder-only Transformer |
+| d_model | 64 |
+| Attention heads | 2 |
+| Layers | 2 |
+| Feed-forward dim | 128 |
+| Dropout | 0.1 |
+| Total parameters | 106,027 |
+
+#### Training Configuration
+| Parameter | Value | Selection Method |
+|-----------|-------|------------------|
+| Optimizer | Adam | Standard choice |
+| Learning rate | 2×10⁻³ | Tuned for convergence |
+| Batch size | 128 | Memory-efficient |
+| Epochs | 30 | Convergence observed |
+| Loss function | Cross-entropy (ignore padding) | Standard for seq2seq |
+
+#### Landscape Analysis Methods
+| Method | Implementation | Parameters |
+|--------|---------------|------------|
+| Top eigenvalue | Power iteration with HVP | 25 iterations |
+| Hessian trace | Hutchinson&#39;s estimator | 5 Rademacher vectors |
+| 2D surface | Filter-normalized random directions | 21×21 grid, range [-1,1] |
+| Mode connectivity | Linear interpolation | 21 points |
+| Sharpness | Random perturbation max | ρ ∈ {0.01, 0.05, 0.1, 0.5} |
+| Basin width | Loss along random directions | 10 directions, 25 steps, ε ∈ [0, 3] |
+
+### Reproducibility
+- **Random seeds**: 42, 153, 264 (3 independent runs)
+- **Hardware**: CPU only
+- **Python**: 3.12.8
+- **PyTorch**: 2.10.0
+- **Total execution time**: ~24 minutes
+
+### Raw Results
+
+#### Training Convergence (averaged across 3 runs)
+
+| Metric | Direct | CoT |
+|--------|--------|-----|
+| Final train loss | 0.324 ± 0.013 | 0.200 ± 0.019 |
+| Final val loss | 0.262 ± 0.012 | 0.130 ± 0.013 |
+| Final gradient norm | 0.289 ± 0.008 | 0.244 ± 0.006 |
+| Generalization gap | 0.062 | 0.070 |
+
+#### Hessian Metrics
+
+| Metric | Direct | CoT | Direction |
+|--------|--------|-----|-----------|
+| Top eigenvalue (λ_max) | 4.163 ± 0.474 | 3.200 ± 0.782 | Direct &gt; CoT |
+| Hessian trace | 54.02 ± 13.35 | 48.18 ± 13.07 | Direct &gt; CoT |
+
+#### Sharpness (SAM-style)
+
+| ρ | Direct | CoT | Ratio (D/C) |
+|---|--------|-----|-------------|
+| 0.01 | 9.7×10⁻⁶ ± 1.2×10⁻⁶ | 7.7×10⁻⁶ ± 1.2×10⁻⁶ | 1.26× |
+| 0.05 | 4.6×10⁻⁵ ± 2.2×10⁻⁵ | 2.3×10⁻⁵ ± 0.2×10⁻⁵ | 2.00× |
+| 0.10 | 1.0×10⁻⁴ ± 0.5×10⁻⁴ | 6.3×10⁻⁵ ± 1.7×10⁻⁵ | 1.59× |
+| 0.50 | 6.4×10⁻⁴ ± 1.9×10⁻⁴ | 4.4×10⁻⁴ ± 1.9×10⁻⁴ | 1.45× |
+
+#### Mode Connectivity
+
+| Barrier Type | Height | Interpretation |
+|-------------|--------|----------------|
+| Direct ↔ Direct | 1.073 ± 0.054 | Moderate barrier |
+| CoT ↔ CoT | 1.403 ± 0.064 | Higher barrier |
+| Direct ↔ CoT | 0.726 ± 0.009 | Lowest barrier |
+
+#### Visualizations
+
+All figures are saved in `figures/`:
+- `training_curves.png`: Training/validation loss and gradient norm curves
+- `loss_surfaces_2d.png`: Filter-normalized 2D loss surfaces with difference map
+- `hessian_and_sharpness.png`: Hessian metrics and sharpness comparison
+- `mode_connectivity.png`: Linear interpolation loss curves and barrier heights
+- `perturbation_profile.png`: Loss under random perturbation
+- `summary_dashboard.png`: Comprehensive 6-panel comparison
+
+## 5. Result Analysis
+
+### Key Findings
+
+**Finding 1: CoT models converge to flatter minima (H1 SUPPORTED)**
+
+The top Hessian eigenvalue is consistently lower for CoT models (3.20 vs 4.16, all 3 runs show Direct &gt; CoT). This indicates lower maximum curvature at the converged minimum, meaning the sharpest direction in parameter space is less steep for CoT. The Hessian trace (sum of all eigenvalues, a measure of average curvature) also trends lower for CoT (48.18 vs 54.02), though with higher variance.
+
+**Finding 2: CoT models have lower sharpness (H2 SUPPORTED)**
+
+SAM-style sharpness is lower for CoT at all perturbation radii (ρ = 0.01 to 0.5). The ratio Direct/CoT ranges from 1.26× to 2.00×, with the largest difference at ρ = 0.05. This is consistent with PAC-Bayes theory (Foret et al. 2021): lower sharpness predicts better generalization, aligning with CoT&#39;s lower validation loss.
+
+**Finding 3: CoT solutions are MORE isolated, not more connected (H4 PARTIALLY REFUTED)**
+
+Surprisingly, CoT ↔ CoT barriers (1.40) are *higher* than Direct ↔ Direct barriers (1.07). This means independently trained CoT models are less linearly mode connected than direct models. However, cross-type barriers (Direct ↔ CoT: 0.73) are *lower* than same-type barriers, suggesting CoT and Direct solutions may be closer in parameter space to each other than to other solutions of the same type.
+
+**Finding 4: CoT training shows smoother gradient dynamics (H5 SUPPORTED)**
+
+Final gradient norms are lower for CoT (0.244 vs 0.289), and the gradient norm curves show a smoother, more monotonic decrease during training. This suggests the CoT loss surface provides more consistent gradient signals.
+
+**Finding 5: CoT achieves significantly lower loss (convergence advantage confirmed)**
+
+CoT validation loss (0.130) is roughly half of Direct (0.262), confirming that the CoT formulation is fundamentally easier to learn for matched architectures.
+
+### Hypothesis Testing
+
+| Hypothesis | Result | Evidence |
+|-----------|--------|----------|
+| H1: CoT → flatter minima | **Supported** | λ_max: 3.20 vs 4.16 (Direct &gt; CoT in all 3 runs) |
+| H2: CoT → lower sharpness | **Supported** | Sharpness 1.3-2.0× higher for Direct at all ρ |
+| H3: CoT → wider basins | **Inconclusive** | Both saturated at max test radius (3.0) |
+| H4: CoT → more connected | **Partially refuted** | CoT↔CoT barriers HIGHER than Direct↔Direct |
+| H5: CoT → smoother training | **Supported** | Gradient norms lower and more stable |
+
+### Statistical Significance
+
+With only n=3 runs, Mann-Whitney U tests have limited power (minimum possible p-value is 0.1 for n₁=n₂=3). The effect sizes are large (r = -1.0 for final val loss, gradient norm), indicating strong directional consistency despite the small sample. The key findings (H1, H2, H5) show perfect rank ordering across all 3 runs (Direct always higher), which is the strongest possible evidence for n=3.
+
+### Surprises and Insights
+
+1. **CoT solutions are more isolated**: This contradicts the naive expectation that smoother landscapes = more connected basins. A possible explanation: CoT&#39;s richer output structure creates more specialized minima that each learn slightly different derivation patterns, while direct models converge to more generic representations.
+
+2. **Cross-type barriers are lowest**: Direct and CoT models are closer to each other in parameter space than models of the same type trained with different seeds. This suggests the proof strategy influences which region of parameter space is explored, but nearby regions can serve both strategies.
+
+3. **Sharpness ratio increases then decreases with ρ**: The Direct/CoT sharpness ratio peaks at ρ=0.05 (2.0×) and decreases at larger ρ. This suggests the curvature difference is most pronounced in the immediate neighborhood of the minimum and becomes relatively smaller at larger perturbation scales.
+
+### Theoretical Interpretation
+
+The flatness advantage of CoT can be understood through the lens of output decomposition:
+
+**Proposition (Informal)**: Let L_direct(θ) = -log P(y|x; θ) be the direct proof loss and L_CoT(θ) = -Σᵢ log P(sᵢ|s₁,...,sᵢ₋₁, x; θ) be the CoT loss decomposed into K steps. Then:
+
+1. The CoT loss provides K gradient signals per sample vs 1 for direct, creating denser supervision
+2. Each CoT step has lower entropy (shorter, more predictable output), leading to smoother per-step loss surfaces
+3. The overall landscape is a sum of K smoother components, which by concentration of measure tends to be smoother than the single-step direct landscape
+
+This informal argument aligns with our empirical findings: CoT models see lower curvature (flatter minima), lower sharpness, and more stable gradients.
+
+### Limitations
+
+1. **Scale**: Our models (106K parameters) are orders of magnitude smaller than real theorem provers (billions of parameters). Landscape geometry may change qualitatively at larger scale.
+
+2. **Task simplicity**: Propositional logic is trivially decidable. Real theorem proving (Lean 4, Isabelle) involves complex type theory and requires genuine mathematical reasoning.
+
+3. **Small n**: With 3 runs, statistical tests lack power. The consistent directional effects are encouraging but not statistically significant by conventional thresholds.
+
+4. **Basin width inconclusive**: Both models&#39; basins extended beyond our test radius (ε=3.0), preventing meaningful comparison. Larger perturbation ranges or different threshold definitions may be needed.
+
+5. **Reparametrization concerns**: While we used filter normalization for 2D surfaces, the Hessian and sharpness measures may still be affected by scale-dependent artifacts (Dinh et al. 2017).
+
+6. **CoT output length**: CoT outputs are longer than direct outputs, so the models process different amounts of target sequence. This confounds the generation strategy effect with a sequence length effect.
+
+## 6. Conclusions
+
+### Summary
+Chain-of-thought decomposition in neural theorem provers creates measurably flatter loss landscapes (lower Hessian top eigenvalue, lower sharpness) compared to direct proof generation, with more stable gradient dynamics during training. However, the hypothesis that CoT also creates more *connected* landscapes is not supported—CoT solutions are actually more isolated from each other than direct solutions. The landscape geometry partially explains CoT&#39;s superior convergence: flatter minima with consistent gradient signals enable more reliable optimization.
+
+### Implications
+- **For architecture design**: The finding that CoT provides denser, smoother supervision suggests that intermediate reasoning steps are valuable not just for final output quality, but for fundamentally reshaping the optimization landscape
+- **For training strategies**: SAM-style flat-minimum-seeking optimizers may partially close the gap between direct and CoT approaches by explicitly targeting flatter regions
+- **For theoretical understanding**: The disconnect between local flatness (CoT is flatter) and global connectivity (CoT is less connected) suggests these are independent landscape properties, contrary to common assumptions
+
+### Confidence in Findings
+- **High confidence**: CoT has flatter minima and lower sharpness (consistent across all runs)
+- **High confidence**: CoT achieves lower validation loss (large effect, consistent)
+- **Moderate confidence**: CoT has higher same-type barriers (consistent but small n)
+- **Low confidence**: Magnitude of effects at real scale (extrapolation concern)
+
+## 7. Next Steps
+
+### Immediate Follow-ups
+1. **Increase statistical power**: Run 10+ independent trials for each condition
+2. **Scale up models**: Test with 1M-10M parameter transformers to assess whether geometric differences persist at scale
+3. **Realistic tasks**: Apply analysis to Lean 4 or Isabelle theorem proving tasks with real mathematical content
+4. **Basin width**: Use larger perturbation ranges or alternative basin width metrics (e.g., volume-based)
+
+### Alternative Approaches
+- **Persistent homology**: Compute topological features of loss sublevel sets to characterize landscape topology beyond mode connectivity
+- **SAM intervention**: Train direct models with SAM optimizer to test whether flattening the landscape improves their performance
+- **Permutation alignment**: Apply Git Re-Basin (Ainsworth et al. 2023) before barrier measurement to account for symmetry
+
+### Broader Extensions
+- Does the decomposition depth (number of CoT steps) monotonically improve landscape flatness?
+- Can the &#34;dense supervision&#34; mechanism be quantified: what is the relationship between number of intermediate targets and Hessian eigenvalue distribution?
+- Do similar landscape geometry differences exist in other reasoning tasks (code generation, mathematical problem solving)?
+
+### Open Questions
+1. Why are CoT solutions more isolated despite being individually flatter?
+2. Is there a phase transition in landscape geometry as model scale increases?
+3. Can landscape geometry predict which theorems CoT vs direct approaches will succeed on?
+4. Does the cross-type barrier being lowest suggest a parameter-efficient way to switch between proof strategies?
+
+## 8. References
+
+1. Li, H., Xu, Z., Taylor, G., Studer, C., &amp; Goldstein, T. (2018). Visualizing the Loss Landscape of Neural Nets. NeurIPS.
+2. Foret, P., Kleiner, A., Mobahi, H., &amp; Neyshabur, B. (2021). Sharpness-Aware Minimization for Efficiently Improving Generalization. ICLR.
+3. Dinh, L., Pascanu, R., Bengio, S., &amp; Bengio, Y. (2017). Sharp Minima Can Generalize For Deep Nets. ICML.
+4. Ainsworth, S. K., Hayase, J., &amp; Srinivasa, S. (2023). Git Re-Basin: Merging Models modulo Permutation Symmetries. ICLR.
+5. Kuditipudi, R., Wang, X., Lee, H., Zhang, Y., Li, Z., Hu, W., Ge, R., &amp; Arora, S. (2019). Explaining Landscape Connectivity of Low-cost Solutions for Multilayer Nets. NeurIPS.
+6. Frankle, J., Dziugaite, G. K., Roy, D., &amp; Carlin, M. (2020). Linear Mode Connectivity and the Lottery Ticket Hypothesis. ICML.
+7. Ghorbani, B., Krishnan, S., &amp; Xiao, Y. (2019). An Investigation into Neural Net Optimization via Hessian Eigenvalue Density. ICML.
+8. Polu, S. &amp; Sutskever, I. (2020). Generative Language Modeling for Automated Theorem Proving. arXiv.
+9. First, E., Rabe, M. N., Ringer, T., &amp; Brun, Y. (2023). Baldur: Whole-Proof Generation and Repair with Large Language Models. ESEC/FSE.
+10. Ren, Z., et al. (2025). DeepSeek-Prover-V2: Advancing Formal Mathematical Reasoning via Reinforcement Learning. arXiv.
+11. Lample, G., Lacroix, T., Lachaux, M.-A., Rodriguez, A., Hayat, A., Lavril, T., Ebner, G., &amp; Martinet, X. (2022). HyperTree Proof Search for Neural Theorem Proving. NeurIPS.
+
+
+════════════════════════════════════════════════════════════════════════════════
+                            RESEARCH PLAN
+════════════════════════════════════════════════════════════════════════════════
+
+# Research Plan: Geometric Analysis of Loss Landscapes in ATP
+
+## Motivation &amp; Novelty Assessment
+
+### Why This Research Matters
+Neural theorem provers with chain-of-thought (CoT) decomposition consistently outperform direct proof generation, but the mathematical mechanisms are unknown. Understanding loss landscape geometry could explain this gap and guide architecture design for formal reasoning systems.
+
+### Gap in Existing Work
+From the literature review: &#34;No prior work directly compares loss landscapes of CoT vs. direct proof generation&#34; and &#34;Theorem proving loss landscapes are unstudied.&#34; All existing landscape analysis covers classification/generation tasks. The intersection of loss landscape theory and theorem proving is essentially unexplored.
+
+### Our Novel Contribution
+We provide the first systematic comparison of loss landscape geometry between CoT and direct proof generation strategies, using:
+1. A controlled experimental framework with matched models on simplified theorem proving
+2. Comprehensive geometric analysis (Hessian spectra, mode connectivity, basin width)
+3. A theoretical framework connecting proof decomposition depth to landscape smoothness
+
+### Experiment Justification
+- **Exp 1 (Landscape Visualization)**: Filter-normalized 2D loss surfaces reveal qualitative landscape structure differences
+- **Exp 2 (Hessian Spectrum)**: Eigenvalue distributions quantify curvature — key to understanding basin geometry
+- **Exp 3 (Mode Connectivity)**: Loss barrier measurements test whether approaches find solutions in the same or different landscape regions
+- **Exp 4 (Basin Width)**: Random perturbation analysis measures robustness of minima
+- **Exp 5 (Training Dynamics)**: Gradient norm and loss trajectory analysis reveals convergence properties
+
+## Research Question
+Does chain-of-thought decomposition in neural theorem provers create fundamentally different loss landscape geometry compared to direct proof generation, and can these geometric differences explain the observed performance gap?
+
+## Hypothesis Decomposition
+- **H1**: CoT models converge to flatter minima (larger top Hessian eigenvalue ratio) than direct models
+- **H2**: CoT and direct models have different mode connectivity properties (higher loss barriers between direct model solutions)
+- **H3**: CoT models exhibit wider basins of attraction (loss increases more slowly under random perturbation)
+- **H4**: The Hessian spectrum of CoT models has fewer/smaller outlier eigenvalues
+- **H5**: CoT training trajectories show more stable gradient norms
+
+## Methodology
+
+### Task Design
+Propositional logic theorem proving with controllable complexity:
+- Variables: p, q, r, s (4 propositional variables)
+- Connectives: AND, OR, NOT, IMPLIES
+- Task: Given premises, derive a conclusion
+- Ground truth available via truth tables
+
+### Two Training Modes
+1. **Direct**: Input = premises → Output = conclusion (single step)
+2. **CoT**: Input = premises → Output = step1; step2; ...; conclusion (multi-step derivation)
+
+### Model Architecture
+- Small transformer (2-4 layers, 64-128 dim, 2-4 heads)
+- Same architecture for both modes
+- Differences only in target sequence format
+
+### Landscape Analysis Pipeline
+1. Train both models to convergence
+2. Compute filter-normalized 2D loss surfaces (Li et al. 2018)
+3. Compute top-k Hessian eigenvalues via power iteration
+4. Measure loss barriers along linear interpolation paths
+5. Estimate basin width via random perturbation
+6. Track training dynamics (loss, gradient norm, per-step sharpness)
+
+### Evaluation Metrics
+- Hessian top eigenvalue and eigenvalue ratio (top/median)
+- Loss barrier height between independently trained models
+- Basin width at ε = {0.1, 0.5, 1.0} above minimum
+- Filter-normalized sharpness (Li et al. 2018)
+- Training loss convergence rate
+
+### Statistical Analysis
+- 5 independent runs per condition (different random seeds)
+- Mann-Whitney U test for comparing distributions (non-parametric, small n)
+- Report medians, IQR, and effect sizes
+
+## Timeline (within 1 hour)
+- Phase 1 Planning: 5 min (this document)
+- Phase 2 Implementation: 25 min (data generation, model, training, metrics)
+- Phase 3 Experiments: 15 min (run all experiments)
+- Phase 4 Analysis: 5 min
+- Phase 5-6 Documentation: 10 min
+
+## Potential Challenges
+- Small model/task may not capture all phenomena of large-scale provers
+- CPU-only constraint limits model size and number of runs
+- Binary proof verification vs. continuous loss landscape tension
+- Need to ensure CoT vs direct differences aren&#39;t artifacts of sequence length
+
+
+════════════════════════════════════════════════════════════════════════════════
+                          LITERATURE REVIEW
+════════════════════════════════════════════════════════════════════════════════
+
+# Literature Review: Geometric Analysis of Loss Landscapes in Automated Theorem Proving
+
+## Research Area Overview
+
+This research investigates whether chain-of-thought (CoT) reasoning in neural theorem provers creates fundamentally different loss landscape geometry compared to direct proof generation. The hypothesis is that CoT produces smoother, more connected landscapes with wider basins of attraction, while direct proof generation exhibits sharper minima and more fragmented topology. This work sits at the intersection of three areas: (1) loss landscape geometry and optimization theory, (2) neural theorem proving, and (3) mode connectivity and landscape topology.
+
+---
+
+## Key Definitions
+
+### Loss Landscape Geometry
+
+**Definition (Loss Function).** For a neural network with parameters θ trained on dataset {(xᵢ, yᵢ)}ᵢ₌₁ᵐ: L(θ) = (1/m) Σᵢ ℓ(xᵢ, yᵢ; θ).
+
+**Definition (ε-sharpness, Keskar et al. 2017, modified by Dinh et al. 2017).** For a non-negative loss L at minimum θ*, the ε-sharpness is: S(θ*, ε) = max_{θ&#39; ∈ B₂(ε, θ*)} [L(θ&#39;) - L(θ*)] / [1 + L(θ*)]. Via second-order Taylor expansion at a critical point: S(θ*, ε) ≈ ‖H(θ*)‖₂ · ε² / [2(1 + L(θ*))].
+
+**Definition (Volume ε-flatness, Dinh et al. 2017).** Given ε &gt; 0 and minimum θ, C(L, θ, ε) is the largest connected set containing θ such that L(θ&#39;) &lt; L(θ) + ε for all θ&#39; ∈ C. The ε-flatness is vol(C(L, θ, ε)).
+
+**Definition (SAM Objective, Foret et al. 2021).** L^SAM_S(w) = max_{‖ε‖_p ≤ ρ} L_S(w + ε). The SAM optimization problem seeks parameters with uniformly low loss in a neighborhood of radius ρ.
+
+**Definition (Filter-wise Normalization, Li et al. 2018).** For direction vector d compatible with parameters θ, normalize each filter: dᵢ,ⱼ ← (dᵢ,ⱼ / ‖dᵢ,ⱼ‖) · ‖θᵢ,ⱼ‖, where dᵢ,ⱼ is the j-th filter of the i-th layer. This removes scale invariance artifacts.
+
+### Mode Connectivity
+
+**Definition (Linear Mode Connectivity, Frankle et al. 2020).** Two parameter configurations Θ_A, Θ_B are linearly mode connected if the loss along the linear interpolation (1-λ)Θ_A + λΘ_B remains low for all λ ∈ [0,1].
+
+**Definition (Loss Barrier, Frankle et al. 2020).** Given Θ_A, Θ_B with L(Θ_A) ≈ L(Θ_B): barrier = max_{λ∈[0,1]} L((1-λ)Θ_A + λΘ_B) - ½(L(Θ_A) + L(Θ_B)). Zero barrier indicates convex interpolation.
+
+**Definition (ε-connectivity, Kuditipudi et al. 2019).** Parameters θ^A and θ^B are ε-connected if there exists a continuous path π(t) with π(0) = θ^A, π(1) = θ^B, and L(f_{π(t)}) ≤ max{L(f_{θ^A}), L(f_{θ^B})} + ε for all t.
+
+**Definition (ε-dropout stability, Kuditipudi et al. 2019).** A solution θ is ε-dropout stable if zeroing out up to half the hidden units per layer (with appropriate rescaling) increases the loss by at most ε.
+
+**Definition (Permutation Symmetry).** For an MLP, applying permutation P to layer ℓ&#39;s outputs and P⁻¹ to layer ℓ+1&#39;s inputs produces a functionally equivalent network: W&#39;_ℓ = PW_ℓ, b&#39;_ℓ = Pb_ℓ, W&#39;_{ℓ+1} = W_{ℓ+1}P⊤ (Ainsworth et al. 2023).
+
+### Hessian Spectrum
+
+**Definition (Layer Cushion, Kuditipudi et al. 2019).** μᵢ = min_{x∈S} ‖Aᵢφ(x^{i-1})‖ / (‖Aᵢ‖_F ‖φ(x^{i-1})‖). Measures how well each layer preserves signal magnitude.
+
+**Definition (Noise Stability, Kuditipudi et al. 2019).** A network θ is ε-noise stable for ε = β · c · d^{3/2} · max_{x}(‖f_θ(x)‖) / (h_{min}^{1/2} · min_i(μᵢ · μ_{i→})). Smaller ε means more robust.
+
+---
+
+## Key Papers
+
+### Paper 1: Visualizing the Loss Landscape of Neural Nets (Li et al., 2018)
+- **Main Results**: (1) Filter normalization enables meaningful cross-architecture landscape comparison. (2) Skip connections prevent transition from convex to chaotic landscapes as depth increases. (3) Wider networks produce flatter minima. (4) Sharpness under filter normalization correlates with generalization error. (5) SGD trajectories lie in extremely low-dimensional subspaces (2D captures 40-90% of variation).
+- **Proof Techniques**: Filter-normalized random direction visualization; Hessian eigenvalue computation; PCA-based trajectory analysis.
+- **Relevance**: Provides the primary visualization methodology applicable to comparing CoT vs. direct proof generation landscapes. The finding that architectural choices (skip connections, width) fundamentally alter landscape geometry suggests that proof generation strategy (sequential CoT vs. one-shot) may similarly reshape the landscape.
+
+### Paper 2: Sharpness-Aware Minimization (Foret et al., 2021)
+- **Main Results**: PAC-Bayes bound: L_D(w) ≤ max_{‖ε‖₂≤ρ} L_S(w+ε) + h(‖w‖²₂/ρ²). SAM improves generalization by seeking flat minima. Introduces m-sharpness (per-example sharpness) as a stronger predictor of generalization.
+- **Relevance**: SAM&#39;s formulation provides a concrete, trainable objective for controlling landscape geometry. Could be used to deliberately flatten the landscape for direct proof generation to test whether this closes the gap with CoT.
+
+### Paper 3: Sharp Minima Can Generalize (Dinh et al., 2017)
+- **Main Results**: (1) Volume ε-flatness is infinite for all ReLU network minima (Theorem 2). (2) Hessian spectral norm can be made arbitrarily large via α-scale transformations without changing the function (Theorem 4). (3) Multiple Hessian eigenvalues can be simultaneously inflated (Theorem 5).
+- **Proof Techniques**: Exploits non-negative homogeneity of ReLU; uses Jacobian determinant analysis; Horn&#39;s inequalities for singular values.
+- **Relevance**: CRITICAL methodological warning — naive sharpness comparisons between CoT and direct proof models may be misleading. Must use reparametrization-invariant measures or filter normalization.
+
+### Paper 4: Git Re-Basin (Ainsworth et al., 2023)
+- **Main Results**: (1) Neural network loss landscapes contain nearly a single basin after accounting for permutation symmetries. (2) Three algorithms for aligning models via permutation (activation matching, weight matching, straight-through estimation). (3) First demonstration of zero-barrier linear mode connectivity between independently trained ResNets. (4) Linear mode connectivity is an emergent property of SGD, not of architectures.
+- **Relevance**: Provides methodology for testing whether CoT and direct proof models end up in the &#34;same basin&#34; modulo permutations, or in genuinely different landscape regions. The single-basin hypothesis, if it holds for theorem proving models, would suggest differences are more subtle than basin-level separation.
+
+### Paper 5: Explaining Landscape Connectivity (Kuditipudi et al., 2019)
+- **Main Results**: (1) Dropout-stable optima are connected via piecewise-linear paths with at most O(d) segments (Theorem 1). (2) Noise-stable networks are dropout-stable, hence connected. (3) Not all optima are connected — connectivity is a property of SGD-found solutions.
+- **Proof Techniques**: Constructive path building via alternating top-layer interpolation and input weight modification; leverages convexity of loss in final layer weights.
+- **Relevance**: Provides testable conditions (dropout stability, noise stability) that predict whether CoT and direct proof solutions will be mode-connected. If both are dropout-stable but direct proof solutions are less noise-stable, this would support the hypothesis of more fragmented topology.
+
+### Paper 6: GPT-f (Polu &amp; Sutskever, 2020)
+- **Main Results**: (1) Transformer LMs can effectively generate individual proof steps for Metamath. (2) Pre-training on mathematical text (arXiv) significantly improves performance. (3) Iterative value function training improves proof search. (4) 56.22% proof rate on Metamath test set.
+- **Training**: Conditional language modeling: GOAL → PROOFSTEP. Loss computed only on proofstep tokens. Best-first search with 32 sampled tactics per expansion.
+- **Relevance**: Represents the step-by-step (sequential reasoning) paradigm for theorem proving. The per-step loss function creates dense training signal, potentially leading to smoother optimization landscapes.
+
+### Paper 7: Baldur (First et al., 2023)
+- **Main Results**: (1) LLMs can generate entire formal proofs in one shot without interactive proof search. (2) Proof repair model improves success rate. (3) 47.9% proof rate on Isabelle/HOL with 62B model. (4) Complementary to search-based methods (combined 65.7%).
+- **Training**: Standard autoregressive loss on full proof text. Overfitting observed at 50-70K steps.
+- **Relevance**: KEY paper for direct proof generation. The early overfitting suggests a sharper loss landscape with narrower basins. The complementarity with search-based methods suggests different landscape regions are explored.
+
+### Paper 8: DeepSeek-Prover-V2 (Ren et al., 2025)
+- **Main Results**: (1) Hybrid CoT + formal proof approach via subgoal decomposition. (2) Cold-start with synthetic CoT data + GRPO reinforcement learning. (3) Consistency reward prevents structural divergence between CoT and formal proof. (4) 88.9% on MiniF2F-test.
+- **Training**: Two stages: supervised cold-start, then GRPO with binary + consistency rewards. The consistency reward penalizes misalignment between CoT decomposition and formal proof structure.
+- **Relevance**: KEY paper for CoT approach. The consistency reward can be interpreted as a landscape-shaping mechanism that encourages smoother loss surfaces. Emergent specialization in smaller models (7B vs 671B) suggests capacity-dependent basin structure.
+
+### Paper 9: HyperTree Proof Search (Lample et al., 2022)
+- **Main Results**: (1) MCTS-inspired search for hypertree-structured proofs. (2) Online training creates non-stationary optimization where data distribution evolves with model capability. (3) 82.6% on Metamath with online training.
+- **Relevance**: The online training paradigm fundamentally alters the loss landscape over time, creating a sequence of increasingly complex landscapes. This is relevant to understanding how CoT step-by-step learning dynamics differ from one-shot direct generation.
+
+### Paper 10: Hessian Eigenvalue Density (Ghorbani et al., 2019)
+- **Main Results**: Hessian spectrum has two components: (1) bulk near zero (continuous density) and (2) isolated outlier eigenvalues. Outliers correspond to per-class gradient directions. Number of outliers ≈ number of classes.
+- **Relevance**: For theorem proving, &#34;classes&#34; could be proof strategies or tactic types. CoT (many intermediate steps) vs. direct (one output) may produce different outlier structures in the Hessian.
+
+---
+
+## Known Results (Prerequisite Theorems)
+
+| Result | Source | Statement Summary | Used For |
+|--------|--------|-------------------|----------|
+| PAC-Bayes generalization bound | Foret et al. 2021 | L_D(w) ≤ max L_S(w+ε) + h(‖w‖²/ρ²) | Connecting sharpness to generalization |
+| Dropout-stable optima connectivity | Kuditipudi et al. 2019 | ε-dropout stable solutions connected via O(d)-segment paths | Testing basin connectivity |
+| Volume flatness uninformative | Dinh et al. 2017 | All ReLU network minima have infinite volume ε-flatness | Ruling out naive flatness measures |
+| Hessian manipulability | Dinh et al. 2017 | ‖H(T_α(θ))‖₂ can be made arbitrarily large for any minimum | Requiring invariant measures |
+| Permutation invariance conjecture | Entezari et al. 2021 | Most SGD solutions are LMC modulo permutation symmetries | Single-basin hypothesis |
+| Single basin modulo symmetries | Ainsworth et al. 2023 | Empirically verified for ResNets on CIFAR-10 | Landscape topology analysis |
+| Loss simplexes | Benton et al. 2021 | SGD solutions form connected low-loss volumes, not just paths | Richer topology than paths |
+| Hessian bulk+outlier structure | Ghorbani et al. 2019 | Spectrum = continuous bulk near 0 + isolated outliers | Curvature analysis methodology |
+| Depth-chaos transition | Li et al. 2018 | Deep networks without skip connections have chaotic landscapes | Architecture-landscape relationship |
+
+---
+
+## Proof Techniques in the Literature
+
+### Loss Landscape Analysis Techniques
+1. **Filter-normalized visualization** (Li et al. 2018): Plot f(α,β) = L(θ* + αδ + βη) with filter-normalized random directions δ,η. Gold standard for visual comparison.
+2. **Hessian eigenvalue analysis** (Sagun 2017, Ghorbani 2019): Compute top-k eigenvalues via Lanczos iteration; full spectrum via stochastic trace estimation.
+3. **Linear interpolation** with loss barrier measurement (Frankle 2020, Ainsworth 2023): Evaluate L((1-λ)Θ_A + λΘ_B) for λ ∈ [0,1].
+4. **Permutation alignment** (Ainsworth 2023): Match units across models via activation matching, weight matching, or straight-through estimation before interpolation.
+5. **PCA trajectory analysis** (Li et al. 2018): Project optimization trajectory onto top-2 PCA components to visualize low-dimensional training dynamics.
+
+### Theorem Proving Training Techniques
+1. **Step-by-step tactic prediction**: Train on GOAL → PROOFSTEP pairs; search via best-first or MCTS (GPT-f, HTPS).
+2. **Whole-proof generation**: Train on THEOREM → PROOF pairs; sample &amp; check without search (Baldur).
+3. **CoT subgoal decomposition**: Generate natural language proof sketch, then formalize each subgoal (DeepSeek-Prover-V2).
+4. **Online/iterative training**: Prove theorems, add successful proofs to training data, retrain (HTPS).
+5. **RL with shaped rewards**: Binary verification reward + consistency reward for CoT-proof alignment (DeepSeek-Prover-V2).
+
+---
+
+## Related Open Problems
+
+1. **Reparametrization-invariant sharpness measures**: Dinh et al. (2017) showed standard measures are manipulable. What is the right measure? (Wen et al. 2023 provides partial answers.)
+
+2. **Does the single-basin hypothesis hold for autoregressive theorem provers?** Ainsworth et al. (2023) showed it for image classifiers. Does the sequential structure of proof generation create genuinely separate basins?
+
+3. **How does output sequence length affect landscape geometry?** CoT produces longer sequences than direct generation. Is there a formal relationship between sequence length and landscape curvature?
+
+4. **Non-stationary landscapes in online training**: HTPS&#39;s iterative training changes the data distribution. How does the landscape evolve? Are there phase transitions?
+
+5. **Consistency rewards as landscape shapers**: DeepSeek-Prover-V2&#39;s consistency reward explicitly couples CoT structure to formal proof. How does this alter the loss landscape topology?
+
+---
+
+## Gaps and Opportunities
+
+1. **No prior work directly compares loss landscapes of CoT vs. direct proof generation**. This is a completely open question. The closest work compares landscapes across architectures (Li et al. 2018) or training regimes (Keskar et al. 2017 on batch size), but not across output generation strategies for reasoning tasks.
+
+2. **Theorem proving loss landscapes are unstudied**. All existing landscape analysis is on classification or generation tasks. Theorem proving has unique structure: verification is possible (binary correct/incorrect), output is structured (proof trees), and there are multiple valid proofs per theorem.
+
+3. **The connection between reasoning depth and landscape geometry is unexplored**. CoT adds &#34;depth&#34; through the output sequence rather than through network layers. Whether this creates analogous landscape effects as architectural depth (Li et al. 2018&#39;s depth-chaos transition) is unknown.
+
+4. **Complementarity between approaches is unexplained**. Baldur + Thor proves 65.7% vs. 47.9% and 57% individually. This suggests different approaches find solutions in different landscape regions, but this has not been verified through landscape analysis.
+
+---
+
+## Recommendations for Proof Strategy
+
+### Recommended Experimental Approach
+1. **Train matched models**: Train transformer models on the same theorem proving dataset with (a) step-by-step tactic prediction (CoT-like), (b) whole-proof generation (direct), and (c) CoT subgoal decomposition + proof generation.
+
+2. **Measure landscape geometry**:
+   - Filter-normalized 2D loss surface visualization around each trained model
+   - Hessian top eigenvalue spectrum (bulk + outlier structure)
+   - Loss barrier measurements between models (with and without permutation alignment)
+   - Training trajectory PCA analysis
+
+3. **Test connectivity**: Use Git Re-Basin permutation alignment to test whether CoT and direct models lie in the same basin or separate basins.
+
+4. **Analyze training dynamics**: Track sharpness measures (SAM-style) throughout training for both approaches. Look for phase transitions or qualitative differences in convergence behavior.
+
+### Key Lemmas to Establish
+- Whether filter normalization is appropriate for autoregressive models (not just classifiers)
+- Whether permutation symmetry arguments extend to decoder-only transformers
+- Relationship between proof sequence length and effective landscape dimensionality
+
+### Potential Obstacles
+- Computational cost of Hessian analysis for large language models
+- Dinh et al.&#39;s reparametrization critique may undermine some sharpness comparisons
+- Need to control for confounders: CoT and direct models may differ in many ways beyond landscape geometry
+- Proof-checking provides binary signal; converting this to continuous landscape measures requires care
+
+
+════════════════════════════════════════════════════════════════════════════════
+                          PAPER REQUIREMENTS
+════════════════════════════════════════════════════════════════════════════════
+
+Generate a complete mathematics paper with the following structure:
+
+1. TITLE
+   - Clear, specific, informative
+   - Should convey the main result or the mathematical objects studied
+   - Mathematical convention: concise and precise
+
+2. AUTHOR
+   - Use this exact author line: NeuriCo
+
+3. ABSTRACT (150-250 words)
+   - State the problem or question investigated
+   - Summarize the main results (theorem statements in words)
+   - Mention proof techniques used
+   - Note any computational verification
+
+4. INTRODUCTION
+   - Mathematical problem and motivation
+   - History and context of the problem
+   - Summary of known results (with citations)
+   - Statement of main contributions (informal preview)
+   - Paper organization
+
+5. PRELIMINARIES
+   - Notation and conventions
+   - Definitions needed for the paper
+   - Prerequisite results (stated with citations, not reproved)
+   - This section ensures the paper is self-contained
+
+6. MAIN RESULTS
+   - Formal theorem statements
+   - Complete proofs
+   - Supporting lemmas and propositions with proofs
+   - Examples illustrating the results
+   - Remarks connecting to other areas
+
+7. DISCUSSION
+   - Implications of the results
+   - Connections to related problems
+   - Open questions and conjectures
+   - Possible generalizations
+
+8. CONCLUSION
+   - Summary of contributions
+   - Future directions
+
+9. REFERENCES
+   - BibTeX format
+   - All cited papers and textbooks
+
+════════════════════════════════════════════════════════════════════════════════
+                          OUTPUT FORMAT
+════════════════════════════════════════════════════════════════════════════════
+
+Create a MODULAR LaTeX project with the following directory structure:
+
+paper_draft/
+├── main.tex              # Main file that imports all sections
+├── references.bib        # BibTeX references
+├── sections/
+│   ├── abstract.tex      # Abstract content
+│   ├── introduction.tex  # Introduction section
+│   ├── preliminaries.tex # Definitions, notation, prerequisites
+│   ├── main_results.tex  # Theorems and proofs
+│   ├── discussion.tex    # Discussion and open questions
+│   └── conclusion.tex    # Conclusion section
+├── figures/              # Directory for any generated figures
+└── appendix/             # Directory for appendix sections (if needed)
+
+INSTRUCTIONS:
+1. First, create the directory structure above (mkdir -p paper_draft/sections paper_draft/figures paper_draft/appendix)
+2. Write main.tex using the AMS document class with proper theorem environments:
+
+   \documentclass{amsart}
+   \usepackage{amsmath,amssymb,amsthm}
+   \usepackage[hidelinks]{hyperref}
+   \usepackage{graphicx}
+   \usepackage{enumitem}
+
+   % Theorem environments
+   \newtheorem{theorem}{Theorem}[section]
+   \newtheorem{lemma}[theorem]{Lemma}
+   \newtheorem{proposition}[theorem]{Proposition}
+   \newtheorem{corollary}[theorem]{Corollary}
+   \newtheorem{conjecture}[theorem]{Conjecture}
+
+   \theoremstyle{definition}
+   \newtheorem{definition}[theorem]{Definition}
+   \newtheorem{example}[theorem]{Example}
+
+   \theoremstyle{remark}
+   \newtheorem{remark}[theorem]{Remark}
+
+   % Import command files (if they exist)
+   \InputIfFileExists{commands/math}{}{}
+   \InputIfFileExists{commands/general}{}{}
+   \InputIfFileExists{commands/macros}{}{}
+
+   % Bibliography style
+   \bibliographystyle{amsplain}
+
+   \author{NeuriCo}
+
+   - Use \input{sections/...} to include each section
+   - Use \bibliography{references} for references
+3. Write each section file with COMPLETE content (no placeholders)
+4. Each section file should include its \section{} command
+5. Write references.bib with all citations in BibTeX format
+6. After writing all files, compile the paper:
+   cd paper_draft && pdflatex -interaction=nonstopmode main.tex && bibtex main && pdflatex -interaction=nonstopmode main.tex && pdflatex -interaction=nonstopmode main.tex
+
+NOTE ON DOCUMENT CLASS:
+- Use \documentclass{amsart} (NOT \documentclass{article} with \usepackage{style})
+- The amsart class is part of the standard LaTeX distribution — no .sty file needed
+- It provides proper formatting for mathematical papers: theorem numbering,
+  proof environments, AMS math fonts, and standard math journal layout
+
+This modular structure allows humans to easily:
+- Edit individual sections without navigating a large file
+- Track changes per section
+- Reuse sections across different paper versions
+
+════════════════════════════════════════════════════════════════════════════════
+                          QUALITY REQUIREMENTS
+════════════════════════════════════════════════════════════════════════════════
+
+- Academic mathematical tone throughout
+- Every theorem must have a complete proof
+- All definitions must be precise and unambiguous
+- Proper citations using \cite{} commands
+- NO placeholder text - every section must have real content
+- The paper MUST compile without errors
+- If compilation fails, debug and fix the LaTeX errors
+
+════════════════════════════════════════════════════════════════════════════════
+                       MATHEMATICAL WRITING STYLE
+════════════════════════════════════════════════════════════════════════════════
+
+Follow these conventions for mathematical papers:
+
+1. LANGUAGE STYLE:
+   - Use "we" for collaborative exposition: "We prove", "We show", "We define"
+   - Be precise and direct: state results clearly before proving them
+   - Prefer plain language: "We now prove..." over "We shall henceforth demonstrate..."
+   - Use the present tense for mathematical facts: "Theorem 1 shows..."
+   - Avoid vague language: instead of "clearly" or "obviously", explain why
+
+2. INTRODUCTION STRUCTURE:
+   - Context and motivation (why this problem matters)
+   - History (what's known, with citations)
+   - Statement of results (informal but precise)
+   - Proof techniques (brief overview of methods)
+   - Paper organization (roadmap)
+
+3. THEOREM ENVIRONMENTS:
+   Use proper LaTeX theorem environments:
+   \begin{theorem}\label{thm:main}
+     Let $G$ be a graph with $n$ vertices. Then...
+   \end{theorem}
+
+   \begin{proof}
+     We proceed by induction on $n$. ...
+   \end{proof}
+
+4. DEFINITIONS:
+   \begin{definition}\label{def:widget}
+     A \emph{widget} is a pair $(X, \tau)$ where...
+   \end{definition}
+
+   - Italicize the term being defined using \emph{}
+   - State all conditions explicitly
+   - Give examples immediately after non-trivial definitions
+
+5. PROOF STRUCTURE:
+   - Begin with proof strategy: "The proof proceeds in two steps..."
+   - Number or label key claims within proofs
+   - Use \qedhere for proofs ending in displayed equations
+   - Signal transitions: "It remains to show...", "We now verify..."
+
+6. NOTATION CONVENTIONS:
+   - Define all notation in Preliminaries
+   - Use standard notation: $\mathbb{R}$, $\mathbb{Z}$, $\mathbb{N}$
+   - Use \coloneqq or := for definitions
+   - Be consistent: one symbol = one meaning throughout
+
+7. MATHEMATICAL FORMATTING:
+   - Displayed equations for important formulas: \[ ... \]
+   - Inline math for brief expressions: $...$
+   - Use align environment for multi-line equations
+   - Number only equations that are referenced later
+
+8. REFERENCES AND CITATIONS:
+   - Cite prior results when used: "By \cite{author2024}..."
+   - Distinguish between "Theorem 3 of \cite{...}" and your own results
+   - Include both classic references and recent work
+
+9. EXAMPLES AND COUNTEREXAMPLES:
+   - Illustrate each major result with a concrete example
+   - Show tightness: counterexamples demonstrating necessity of hypotheses
+   - Use \begin{example} ... \end{example} environment
+
+10. FIGURES (if applicable):
+    - Diagrams for geometric arguments
+    - Graphs or plots from computational verification
+    - Commutative diagrams for algebraic results
+    - Use TikZ or include pre-generated figures
+
+════════════════════════════════════════════════════════════════════════════════
+                          WORKFLOW: REVIEW AND REFLECT
+════════════════════════════════════════════════════════════════════════════════
+
+Before calling finish, you MUST complete these review steps:
+
+1. REVIEW RESOURCES (at the start):
+   - Read .claude/skills/paper-writer/SKILL.md for detailed guidance
+   - Study templates/paper_writing/lab_style_guide.md for style conventions
+   - Skim paper_draft/example_paper.tex for amsart LaTeX conventions only
+   - Browse paper_examples/ for language patterns (if available)
+
+2. SELF-REFLECTION (before finishing):
+   After writing all sections, review your work against these criteria:
+
+   MATHEMATICAL CONTENT CHECK:
+   - [ ] Every theorem has a complete, rigorous proof
+   - [ ] All definitions are precise with explicit quantifiers
+   - [ ] Examples illustrate major results
+   - [ ] Counterexamples show necessity of hypotheses where applicable
+   - [ ] Notation is consistent throughout
+
+   FORMATTING CHECK:
+   - [ ] Theorem environments (\begin{theorem}...\end{theorem}) used properly
+   - [ ] Proof environments (\begin{proof}...\end{proof}) used for all proofs
+   - [ ] Is hyperref package included for clickable references?
+   - [ ] Labels and cross-references work correctly
+   - [ ] Bibliography entries are complete
+
+   STRUCTURE CHECK:
+   - [ ] Introduction previews main results clearly
+   - [ ] Preliminaries section makes the paper self-contained
+   - [ ] Results are ordered logically (lemmas before theorems that use them)
+   - [ ] Does the paper compile without errors?
+
+3. FIX ISSUES:
+   - Address any issues found in the self-reflection
+   - Re-compile and verify the PDF looks correct
+
+Only after completing this review should you consider the paper finished.

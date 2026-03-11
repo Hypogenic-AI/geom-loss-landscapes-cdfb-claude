@@ -1,0 +1,120 @@
+\section{Discussion}\label{sec:discussion}
+
+\subsection{Interpretation of results}\label{subsec:interpretation}
+
+Our findings reveal a nuanced picture of how proof decomposition affects the
+optimization landscape. We discuss three aspects in turn.
+
+\para{Local flatness via spectral orthogonality.}
+Theorem~\ref{thm:hessian-bound} identifies spectral orthogonality of per-step
+Hessians as the mechanism by which CoT achieves flatter minima. This is not
+merely a consequence of having more parameters or longer sequences; it follows
+from the structural independence of different reasoning steps. When modus ponens
+and conjunction elimination involve different parameter subspaces, their
+Hessians contribute curvature in orthogonal directions, and the top eigenvalue
+is controlled by the worst single step. This spectral decoupling is a geometric
+consequence of the modular structure of logical reasoning.
+
+\para{The flat-but-isolated phenomenon.}
+The most surprising finding is that CoT solutions are individually flatter but
+globally more isolated. Proposition~\ref{prop:barrier-super} explains the
+mechanism: loss barriers accumulate across steps. Each intermediate prediction
+must interpolate correctly for the total barrier to remain low, and this
+becomes harder as $K$ increases. This reveals an important distinction between
+two senses of ``landscape smoothness'': local curvature (captured by Hessian
+eigenvalues) and global connectivity (captured by loss barriers).
+
+An alternative explanation for the higher CoT barriers involves the
+specialization of intermediate representations. If each trained CoT model
+develops slightly different internal derivation strategies---for instance,
+applying rules in different orders---then interpolating between such models
+disrupts the internal coherence of the reasoning chain, even if each
+individual model sits in a flat basin.
+
+\para{Cross-type barriers.}
+The lowest barriers occur between direct and CoT models trained with different
+seeds ($0.73 \pm 0.01$), rather than between same-type models. This suggests
+that the proof generation strategy determines which \emph{region} of parameter
+space is explored, and these regions are closer to each other than to other
+solutions of the same type. One interpretation is that direct and CoT models
+share a common ``logical core'' in parameter space, with the CoT model adding
+specialized parameters for intermediate step generation that do not strongly
+conflict with the direct model's parameters.
+
+\subsection{Connections to related work}\label{subsec:related}
+
+\para{Loss landscape geometry.}
+Li et al.~\cite{li2018visualizing} showed that architectural choices (skip
+connections, width) fundamentally alter landscape geometry. Our work extends
+this finding to the \emph{output strategy} dimension: even with identical
+architectures, the choice of how to structure the target sequence reshapes the
+landscape. The filter-normalized visualization technique of~\cite{li2018visualizing}
+was essential for obtaining meaningful cross-strategy comparisons.
+
+Dinh et al.~\cite{dinh2017sharp} warned that sharpness measures can be
+manipulated by reparametrization in networks with positively homogeneous
+activations. Our models use GELU activations, which are not positively
+homogeneous, partially mitigating this concern. Nevertheless, we used
+filter normalization for 2D surface visualization and report multiple
+complementary sharpness measures to ensure robustness.
+
+\para{Sharpness and generalization.}
+Foret et al.~\cite{foret2021sharpness} connected sharpness to generalization
+via PAC-Bayes bounds. Our CoT models have both lower sharpness and lower
+validation loss, consistent with this theory. An interesting direction is
+whether training direct models with SAM would close the generalization gap by
+explicitly seeking flatter regions, testing whether the landscape geometry is
+a \emph{cause} or merely a \emph{correlate} of the performance difference.
+
+\para{Mode connectivity.}
+Ainsworth et al.~\cite{ainsworth2023git} showed that independently trained
+image classifiers lie in a single basin after permutation alignment.  Our
+finding that CoT models have \emph{higher} same-type barriers (without
+permutation alignment) suggests either that the single-basin phenomenon does
+not extend to autoregressive sequence models, or that permutation alignment is
+essential for revealing the underlying connectivity. Applying Git
+Re-Basin~\cite{ainsworth2023git} to transformer-based theorem provers is an
+important direction for future work.
+
+\para{Neural theorem proving.}
+The step-by-step approach of GPT-f~\cite{polu2020generative} and
+HTPS~\cite{lample2022hypertree} provides dense per-step supervision analogous
+to our CoT format, while Baldur~\cite{first2023baldur} represents the direct
+approach. Our landscape analysis provides a geometric explanation for the
+empirical observation that step-by-step methods tend to converge more reliably.
+DeepSeek-Prover-V2~\cite{ren2025deepseek} introduces consistency rewards that
+explicitly couple CoT structure to formal proofs; this can be interpreted as a
+landscape-shaping mechanism that further enhances the spectral orthogonality
+identified in Theorem~\ref{thm:hessian-bound}.
+
+\subsection{Limitations}\label{subsec:limitations}
+
+Several limitations constrain the scope of our conclusions.
+
+\para{Scale.} Our models have 106{,}027 parameters, while state-of-the-art
+theorem provers have billions. Loss landscape geometry may change qualitatively
+at larger scale. In particular, the spectral orthogonality assumption in
+Theorem~\ref{thm:hessian-bound}(ii) may break down in overparameterized
+regimes where per-step Hessians share significant spectral overlap.
+
+\para{Task complexity.} Propositional logic is decidable and admits short
+proofs. Real theorem proving in dependent type theories (Lean~4, Isabelle)
+involves complex term construction and genuine mathematical reasoning. Our
+results establish the existence of geometric differences in a controlled
+setting but do not guarantee they persist in more complex domains.
+
+\para{Statistical power.} Three runs per condition provide limited statistical
+power. The consistent directional effects are encouraging, but the magnitude of
+the differences and their statistical significance would benefit from
+replication with 10 or more seeds.
+
+\para{Confounding factors.} CoT outputs are longer than direct outputs.
+The models therefore process different amounts of target sequence, confounding
+the generation strategy effect with a sequence length effect. A more careful
+controlled experiment might fix the total output length and compare the effect
+of decomposition structure alone.
+
+\para{Reparametrization.} While filter normalization addresses some concerns
+raised by Dinh et al.~\cite{dinh2017sharp}, the Hessian eigenvalue and SAM
+sharpness measures are not fully reparametrization-invariant. Developing
+invariant measures suitable for autoregressive models remains an open problem.

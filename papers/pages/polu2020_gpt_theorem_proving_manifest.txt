@@ -1,0 +1,12 @@
+PDF: papers/polu2020_gpt_theorem_proving.pdf
+Total pages: 20
+Pages per chunk: 3
+
+Chunks:
+  polu2020_gpt_theorem_proving_chunk_001.pdf: pages 1-3
+  polu2020_gpt_theorem_proving_chunk_002.pdf: pages 4-6
+  polu2020_gpt_theorem_proving_chunk_003.pdf: pages 7-9
+  polu2020_gpt_theorem_proving_chunk_004.pdf: pages 10-12
+  polu2020_gpt_theorem_proving_chunk_005.pdf: pages 13-15
+  polu2020_gpt_theorem_proving_chunk_006.pdf: pages 16-18
+  polu2020_gpt_theorem_proving_chunk_007.pdf: pages 19-20

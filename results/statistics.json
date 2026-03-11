@@ -1,0 +1,58 @@
+{
+  "Final Val Loss": {
+    "direct_mean": 0.262311660995086,
+    "direct_std": 0.011877899377421975,
+    "cot_mean": 0.12967358777920404,
+    "cot_std": 0.013278389608048016,
+    "p_value": 0.1,
+    "effect_size": -1.0
+  },
+  "Top Eigenvalue": {
+    "direct_mean": 4.1632176240285235,
+    "direct_std": 0.47421064388222234,
+    "cot_mean": 3.1998782952626548,
+    "cot_std": 0.7824826761020411,
+    "p_value": 0.4,
+    "effect_size": -0.5555555555555556
+  },
+  "Hessian Trace": {
+    "direct_mean": 54.01728185017904,
+    "direct_std": 13.352421185633236,
+    "cot_mean": 48.18481419881184,
+    "cot_std": 13.069384099788635,
+    "p_value": 0.7,
+    "effect_size": -0.33333333333333326
+  },
+  "Sharpness (\u03c1=0.05)": {
+    "direct_mean": 4.560500383377075e-05,
+    "direct_std": 2.172642532010732e-05,
+    "cot_mean": 2.3111080129941303e-05,
+    "cot_std": 1.786554314470681e-06,
+    "p_value": 0.2,
+    "effect_size": -0.7777777777777777
+  },
+  "Sharpness (\u03c1=0.5)": {
+    "direct_mean": 0.0006376504898071289,
+    "direct_std": 0.00018595797617121254,
+    "cot_mean": 0.00044211683173974353,
+    "cot_std": 0.0001848117989256474,
+    "p_value": 0.7,
+    "effect_size": -0.33333333333333326
+  },
+  "Same-type Barrier": {
+    "direct_mean": 1.072637250026067,
+    "direct_std": 0.05422141465650481,
+    "cot_mean": 1.403267027810216,
+    "cot_std": 0.0637077806325535,
+    "p_value": 0.1,
+    "effect_size": 1.0
+  },
+  "Final Grad Norm": {
+    "direct_mean": 0.28927116105512635,
+    "direct_std": 0.007675720286475075,
+    "cot_mean": 0.24444473916366768,
+    "cot_std": 0.006068606327731124,
+    "p_value": 0.1,
+    "effect_size": -1.0
+  }
+}

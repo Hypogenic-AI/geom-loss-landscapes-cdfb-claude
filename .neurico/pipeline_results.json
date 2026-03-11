@@ -1,0 +1,26 @@
+{
+  "success": true,
+  "stages": {
+    "resource_finder": {
+      "success": true,
+      "completion_marker": "/workspaces/geom-loss-landscapes-cdfb-claude/.resource_finder_complete",
+      "outputs": {
+        "literature_review": "/workspaces/geom-loss-landscapes-cdfb-claude/literature_review.md",
+        "resources_catalog": "/workspaces/geom-loss-landscapes-cdfb-claude/resources.md",
+        "papers_dir": "/workspaces/geom-loss-landscapes-cdfb-claude/papers",
+        "code_dir": "/workspaces/geom-loss-landscapes-cdfb-claude/code"
+      },
+      "log_file": "/workspaces/geom-loss-landscapes-cdfb-claude/logs/resource_finder_claude.log",
+      "transcript_file": "/workspaces/geom-loss-landscapes-cdfb-claude/logs/resource_finder_claude_transcript.jsonl",
+      "elapsed_time": 1299.6717686653137
+    },
+    "experiment_runner": {
+      "success": true,
+      "return_code": 0,
+      "elapsed_time": 4065.754390001297,
+      "log_file": "/workspaces/geom-loss-landscapes-cdfb-claude/logs/execution_claude.log",
+      "transcript_file": "/workspaces/geom-loss-landscapes-cdfb-claude/logs/execution_claude_transcript.jsonl"
+    }
+  },
+  "work_dir": "/workspaces/geom-loss-landscapes-cdfb-claude"
+}

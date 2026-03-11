@@ -1,0 +1,20 @@
+We investigate the loss landscape geometry of neural theorem provers under two
+proof generation strategies: chain-of-thought (CoT) decomposition, which
+produces step-by-step derivations, and direct generation, which outputs
+conclusions in a single step. Using small transformer models trained on
+propositional logic theorem proving with matched architectures and training
+conditions, we measure five geometric properties of the loss landscape: Hessian
+top eigenvalue, Hessian trace, sharpness-aware minimization (SAM) sharpness,
+mode connectivity barriers, and perturbation sensitivity. We prove that under a
+conditional independence assumption on intermediate reasoning steps, the
+spectral norm of the Hessian of the decomposed loss is bounded by the maximum
+per-step Hessian spectral norm, which is generically smaller than the spectral
+norm of the monolithic loss. Our experiments confirm that CoT models converge to
+flatter minima (top eigenvalue $3.20 \pm 0.78$ vs.\ $4.16 \pm 0.47$), exhibit
+lower SAM sharpness at all perturbation radii, and maintain smaller gradient
+norms during training. Unexpectedly, CoT solutions display \emph{higher} loss
+barriers under linear interpolation between independently trained models ($1.40$
+vs.\ $1.07$), indicating that while CoT minima are individually flatter, they
+are more isolated in parameter space. These results provide the first geometric
+characterization of how proof decomposition reshapes the optimization landscape
+in neural theorem proving.

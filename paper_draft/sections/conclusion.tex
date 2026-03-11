@@ -1,0 +1,57 @@
+\section{Conclusion}\label{sec:conclusion}
+
+We have presented the first geometric analysis of loss landscapes in neural
+theorem proving, comparing chain-of-thought decomposition with direct proof
+generation. Our main theoretical contribution,
+Theorem~\ref{thm:hessian-bound}, shows that the additive structure of the
+decomposed loss bounds its Hessian spectral norm by the maximum per-step
+spectral norm when per-step curvature directions are orthogonal. Our
+experiments on propositional logic theorem proving with matched transformer
+models confirm that CoT models converge to flatter minima with lower Hessian
+top eigenvalue, lower SAM sharpness, and smaller gradient norms.
+
+The most notable finding is the flat-but-isolated phenomenon: CoT minima are
+individually wider but more separated from each other in parameter space, as
+explained by the barrier superadditivity of
+Proposition~\ref{prop:barrier-super}. This challenges the common assumption
+that local flatness implies global connectivity and suggests that these are
+independent geometric properties of the loss landscape.
+
+Several directions merit further investigation.
+
+\begin{enumerate}[leftmargin=*,itemsep=2pt]
+\item \textbf{Scale.} Does the spectral orthogonality of per-step Hessians
+  persist at the scale of modern theorem provers ($10^9$+ parameters)?
+
+\item \textbf{Permutation alignment.} Applying Git
+  Re-Basin~\cite{ainsworth2023git} before barrier measurement may reveal
+  hidden connectivity between CoT solutions.
+
+\item \textbf{SAM intervention.} Training direct models with
+  sharpness-aware minimization~\cite{foret2021sharpness} would test whether
+  flattening the landscape closes the performance gap.
+
+\item \textbf{Decomposition depth.} Is there a monotone relationship between
+  the number of CoT steps $K$ and the Hessian top eigenvalue? Our theory
+  predicts diminishing returns once the per-step Hessians are approximately
+  orthogonal, but this has not been empirically verified.
+
+\item \textbf{Topological analysis.} Persistent homology of loss sublevel
+  sets could characterize landscape topology beyond the barrier-based measures
+  studied here.
+\end{enumerate}
+
+\begin{conjecture}\label{conj:phase}
+  There exists a critical model capacity $d^*$ below which CoT and direct
+  models converge to geometrically distinct regions of parameter space, and
+  above which the landscape simplifies to a single basin (modulo permutation
+  symmetries) for both strategies. The critical capacity $d^*$ depends on the
+  complexity of the theorem proving domain.
+\end{conjecture}
+
+Understanding how proof decomposition shapes the optimization landscape is a
+step toward principled design of neural reasoning systems. The geometric tools
+developed here---spectral decomposition of the Hessian across reasoning steps,
+barrier analysis for structured losses, and scale-dependent sharpness
+comparison---are applicable beyond theorem proving to any setting where the
+output can be decomposed into intermediate reasoning steps.

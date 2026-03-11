@@ -1,0 +1,67 @@
+\section{Introduction}\label{sec:intro}
+
+Neural theorem provers have achieved remarkable success in recent years, with
+systems such as GPT-f~\cite{polu2020generative},
+Baldur~\cite{first2023baldur}, HyperTree Proof Search~\cite{lample2022hypertree},
+and DeepSeek-Prover-V2~\cite{ren2025deepseek} proving substantial fractions of
+benchmark problems in formal mathematics. A recurring empirical observation is
+that systems employing chain-of-thought (CoT) decomposition---generating proofs
+step by step---outperform those that attempt to produce entire proofs in a single
+pass. Despite the practical importance of this phenomenon, its mathematical
+underpinnings remain poorly understood.
+
+One natural avenue for explanation lies in the geometry of the loss landscape.
+The loss landscape of a neural network, viewed as a function from parameter
+space to the reals, encodes the difficulty of the optimization problem: flatter
+minima are associated with better generalization via PAC-Bayes
+bounds~\cite{foret2021sharpness}, mode connectivity reveals the basin structure
+of the solution space~\cite{frankle2020linear, kuditipudi2019explaining}, and
+Hessian spectral properties characterize local curvature and
+trainability~\cite{ghorbani2019investigation}. Powerful tools for analyzing
+these properties---filter-normalized
+visualization~\cite{li2018visualizing}, permutation alignment~\cite{ainsworth2023git},
+and stochastic Hessian estimation---are now well established.
+
+However, these tools have been applied almost exclusively to classification and
+generation tasks on standard benchmarks. No prior work, to our knowledge,
+compares loss landscape geometry across different proof generation strategies in
+neural theorem proving. This gap is notable because theorem proving possesses
+structural features absent from typical machine learning tasks: the existence of
+a verification oracle (proofs can be checked mechanically), the presence of
+multiple valid proofs per theorem, and the hierarchical structure of proof
+derivations.
+
+In this paper, we provide the first systematic geometric comparison of loss
+landscapes arising from CoT versus direct proof generation. We make the
+following contributions:
+
+\begin{itemize}[leftmargin=*,itemsep=0pt,topsep=4pt]
+\item We formalize the decomposed and monolithic loss functions for sequence
+  prediction and prove that, under a conditional independence assumption on
+  intermediate steps, the Hessian spectral norm of the decomposed loss is bounded
+  by the maximum per-step spectral norm (Theorem~\ref{thm:hessian-bound}).
+
+\item We establish a superadditivity property of loss barriers under linear
+  interpolation for decomposed objectives, providing a partial explanation for the
+  higher mode connectivity barriers observed in CoT models
+  (Proposition~\ref{prop:barrier-super}).
+
+\item We present a controlled experimental study comparing five geometric
+  properties of the loss landscape---Hessian top eigenvalue, Hessian trace,
+  SAM-style sharpness, mode connectivity barriers, and perturbation
+  sensitivity---for matched transformer models trained on propositional logic
+  theorem proving.
+
+\item We identify a novel ``flat but isolated'' phenomenon: CoT minima are
+  individually flatter yet more separated from each other in parameter space
+  than direct minima, challenging the common assumption that flatter landscapes
+  imply better-connected solution spaces.
+\end{itemize}
+
+The paper is organized as follows. Section~\ref{sec:prelim} establishes
+notation, definitions, and prerequisite results from loss landscape theory and
+neural sequence prediction. Section~\ref{sec:main} contains our main
+theoretical results and the complete experimental analysis.
+Section~\ref{sec:discussion} discusses implications, limitations, and
+connections to related work. Section~\ref{sec:conclusion} summarizes our
+findings and outlines directions for future research.
